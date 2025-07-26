@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { authService } from '../services/authService';
 import { userUtils } from '../utils/helpers';
 
@@ -110,10 +110,10 @@ export const AuthProvider = ({ children }) => {
     };
 
     initAuth();
-  }, []);
+  }, []); // Empty dependency array - only run once on mount
 
-  // Login function
-  const login = async (credentials) => {
+  // Login function - wrapped in useCallback to prevent recreation
+  const login = useCallback(async (credentials) => {
     try {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
@@ -130,10 +130,10 @@ export const AuthProvider = ({ children }) => {
       dispatch({ type: AUTH_ACTIONS.SET_ERROR, payload: error.message });
       throw error;
     }
-  };
+  }, []);
 
-  // Register function
-  const register = async (userData) => {
+  // Register function - wrapped in useCallback
+  const register = useCallback(async (userData) => {
     try {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
@@ -150,10 +150,10 @@ export const AuthProvider = ({ children }) => {
       dispatch({ type: AUTH_ACTIONS.SET_ERROR, payload: error.message });
       throw error;
     }
-  };
+  }, []);
 
-  // Logout function
-  const logout = async () => {
+  // Logout function - wrapped in useCallback
+  const logout = useCallback(async () => {
     try {
       await authService.logout();
       dispatch({ type: AUTH_ACTIONS.LOGOUT });
@@ -161,23 +161,23 @@ export const AuthProvider = ({ children }) => {
       // Even if logout fails on server, clear local state
       dispatch({ type: AUTH_ACTIONS.LOGOUT });
     }
-  };
+  }, []);
 
-  // Update user profile
-  const updateUser = (userData) => {
+  // Update user profile - wrapped in useCallback
+  const updateUser = useCallback((userData) => {
     dispatch({ type: AUTH_ACTIONS.UPDATE_USER, payload: userData });
     // Also update in localStorage
     const updatedUser = { ...state.user, ...userData };
     userUtils.setUser(updatedUser);
-  };
+  }, [state.user]);
 
-  // Clear error
-  const clearError = () => {
+  // Clear error - wrapped in useCallback
+  const clearError = useCallback(() => {
     dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-  };
+  }, []);
 
-  // Context value
-  const value = {
+  // Context value - memoized to prevent unnecessary re-renders
+  const value = React.useMemo(() => ({
     // State
     user: state.user,
     isLoading: state.isLoading,
@@ -191,7 +191,18 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUser,
     clearError,
-  };
+  }), [
+    state.user,
+    state.isLoading,
+    state.isAuthenticated,
+    state.isAdmin,
+    state.error,
+    login,
+    register,
+    logout,
+    updateUser,
+    clearError,
+  ]);
 
   return (
     <AuthContext.Provider value={value}>

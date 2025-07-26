@@ -8,6 +8,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.util.Base64;
 import java.util.Date;
 
 @Slf4j
@@ -24,7 +25,26 @@ public class JwtTokenProvider {
     private int refreshTokenExpirationInMs;
 
     private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        // Option 1: If your secret is base64 encoded
+        try {
+            byte[] keyBytes = Base64.getDecoder().decode(jwtSecret);
+            return Keys.hmacShaKeyFor(keyBytes);
+        } catch (IllegalArgumentException e) {
+            // Option 2: If your secret is a plain string, ensure it's long enough
+            // For HS512, we need at least 64 bytes (512 bits)
+            byte[] keyBytes = jwtSecret.getBytes();
+            if (keyBytes.length < 64) {
+                // Pad the key to meet minimum requirements
+                byte[] paddedKey = new byte[64];
+                System.arraycopy(keyBytes, 0, paddedKey, 0, Math.min(keyBytes.length, 64));
+                // Fill remaining bytes with the key repeated
+                for (int i = keyBytes.length; i < 64; i++) {
+                    paddedKey[i] = keyBytes[i % keyBytes.length];
+                }
+                return Keys.hmacShaKeyFor(paddedKey);
+            }
+            return Keys.hmacShaKeyFor(keyBytes);
+        }
     }
 
     public String generateToken(Authentication authentication) {
@@ -36,7 +56,7 @@ public class JwtTokenProvider {
                 .setSubject(userPrincipal.getId())
                 .setIssuedAt(new Date())
                 .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
