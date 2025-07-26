@@ -25,7 +25,6 @@ const Dashboard = () => {
       setLoading(true);
       setError(null);
       const response = await userService.getDashboard();
-      
       if (response.success) {
         setDashboardData(response.data);
       }
